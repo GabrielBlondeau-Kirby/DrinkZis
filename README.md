@@ -34,3 +34,7 @@ Un emplacement par type d'objet, avec la quantité totale et la recharge.
   se mettent à jour en direct.
 - Le classement se base sur le nom et la description de l'objet (français et
   anglais).
+
+## Licence
+
+MIT — voir [LICENSE](LICENSE).
