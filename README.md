@@ -30,6 +30,8 @@ Chaque ligne commence par l'icône de sa catégorie (nom au survol).
 - Catégories affichées.
 - Thèmes : Sombre, Doré, Arcane, Gangrène, Sang.
 - Verrouiller la position.
+- Icône ronde transparente hors combat : elle redevient opaque au survol et
+  en combat.
 - Langue de l'interface : Auto (langue du jeu), English, Français. Elle ne
   change pas le classement des potions, qui reconnaît les clients anglais et
   français dans tous les cas.

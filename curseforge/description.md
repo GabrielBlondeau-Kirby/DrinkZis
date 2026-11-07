@@ -14,6 +14,7 @@ Made for **WoW Forever**.
 - One slot per item, with total count and cooldown.
 - **Opens in combat**: the round button works in combat too, and the bag can open automatically when combat starts and close when it ends.
 - **Themes**: Dark, Gold, Arcane, Fel, Blood.
+- **Fade out of combat** (option): the round button turns transparent outside combat, and opaque again on hover or in combat.
 - **Languages**: English and French interface (Auto follows the game client). Potions are recognised on English and French clients whatever the interface language.
 - Choose which categories are shown.
 
@@ -36,5 +37,6 @@ Note: the game forbids creating buttons during combat, so a potion looted mid-fi
 - Ouverture automatique en combat, fermeture à la sortie (option).
 - Thèmes : Sombre, Doré, Arcane, Gangrène, Sang.
 - Interface en anglais ou en français (Auto = langue du jeu).
+- Option : icône ronde transparente hors combat.
 - Icône autour de la minimap : clic gauche = sac, clic droit = options.
 - `/dz` : options. **Maj + glisser** l'icône : déplacer.

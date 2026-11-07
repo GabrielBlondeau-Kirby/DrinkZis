@@ -53,6 +53,7 @@ local LANGS = {
             opt_auto = "Open automatically in combat, close afterwards",
             opt_lock = "Lock position",
             opt_minimap = "Show the minimap icon",
+            opt_fade = "Transparent round icon out of combat (opaque on hover)",
             opt_cats = "Shown categories",
             opt_theme = "Theme",
             opt_lang = "Language",
@@ -90,6 +91,7 @@ local LANGS = {
             opt_auto = "Ouvrir automatiquement en combat, refermer après",
             opt_lock = "Verrouiller la position",
             opt_minimap = "Afficher l'icône autour de la minimap",
+            opt_fade = "Icône ronde transparente hors combat (opaque au survol)",
             opt_cats = "Catégories affichées",
             opt_theme = "Thème",
             opt_lang = "Langue",
@@ -498,14 +500,27 @@ toggle:SetScript("OnDragStop", function(self)
     local point, _, relPoint, x, y = self:GetPoint()
     DB.pos = { point, relPoint, x, y }
 end)
+-- Option : icône ronde transparente hors combat (opaque au survol et en combat).
+-- SetAlpha reste permis sur un cadre sécurisé, même en combat.
+local FADED_ALPHA = 0.3
+local function UpdateToggleAlpha(inCombat)
+    if inCombat == nil then inCombat = InCombatLockdown() end
+    local faded = DB and DB.fade and not inCombat and not toggle:IsMouseOver()
+    toggle:SetAlpha(faded and FADED_ALPHA or 1)
+end
+
 toggle:SetScript("OnEnter", function(self)
+    self:SetAlpha(1)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText("DrinkZis", 0.4, 0.8, 1)
     GameTooltip:AddLine(T("tip_click"), 1, 1, 1)
     GameTooltip:AddLine(T("tip_drag"), 0.6, 0.6, 0.6)
     GameTooltip:Show()
 end)
-toggle:SetScript("OnLeave", function() GameTooltip:Hide() end)
+toggle:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+    UpdateToggleAlpha()
+end)
 
 local function ApplyPosition()
     toggle:ClearAllPoints()
@@ -558,11 +573,15 @@ end)
 local cbLock = CheckBox("opt_lock", 16, -92, function(v) DB.locked = v end)
 local SetMinimapShown -- défini plus bas
 local cbMinimap = CheckBox("opt_minimap", 16, -120, function(v) SetMinimapShown(v) end)
+local cbFade = CheckBox("opt_fade", 16, -148, function(v)
+    DB.fade = v
+    UpdateToggleAlpha()
+end)
 
-Label(panel, "opt_cats", "GameFontNormal"):SetPoint("TOPLEFT", 16, -162)
+Label(panel, "opt_cats", "GameFontNormal"):SetPoint("TOPLEFT", 16, -190)
 local catBoxes = {}
 for i, c in ipairs(CATEGORIES) do
-    local cb = CheckBox("cat_" .. c.key, 16 + (i - 1) * 120, -184, function(v)
+    local cb = CheckBox("cat_" .. c.key, 16 + (i - 1) * 120, -212, function(v)
         DB.hide[c.key] = not v or nil
         Rebuild()
     end)
@@ -570,7 +589,7 @@ for i, c in ipairs(CATEGORIES) do
     catBoxes[c.key] = cb
 end
 
-Label(panel, "opt_theme", "GameFontNormal"):SetPoint("TOPLEFT", 16, -226)
+Label(panel, "opt_theme", "GameFontNormal"):SetPoint("TOPLEFT", 16, -254)
 local themeButtons = {}
 local function RefreshThemeButtons()
     for key, b in pairs(themeButtons) do
@@ -580,7 +599,7 @@ end
 for i, t in ipairs(THEMES) do
     local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     b:SetSize(100, 24)
-    b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -248)
+    b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -276)
     Loc(b, "theme_" .. t.key)
     b:GetFontString():SetTextColor(unpack(t.border))
     b:SetScript("OnClick", function()
@@ -591,8 +610,8 @@ for i, t in ipairs(THEMES) do
     themeButtons[t.key] = b
 end
 
-Label(panel, "opt_lang", "GameFontNormal"):SetPoint("TOPLEFT", 16, -292)
-Label(panel, "opt_lang_hint", "GameFontHighlightSmall"):SetPoint("TOPLEFT", 90, -294)
+Label(panel, "opt_lang", "GameFontNormal"):SetPoint("TOPLEFT", 16, -320)
+Label(panel, "opt_lang_hint", "GameFontHighlightSmall"):SetPoint("TOPLEFT", 90, -322)
 local langButtons = {}
 local function RefreshLangButtons()
     for key, b in pairs(langButtons) do
@@ -609,7 +628,7 @@ end
 for i, choice in ipairs(LANG_CHOICES) do
     local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     b:SetSize(100, 24)
-    b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -314)
+    b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -342)
     if LANGS[choice] then b:SetText(LANGS[choice].name) else Loc(b, "lang_auto") end
     b:SetScript("OnClick", function()
         DB.lang = choice
@@ -621,7 +640,7 @@ end
 
 local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 resetBtn:SetSize(180, 22)
-resetBtn:SetPoint("TOPLEFT", 16, -358)
+resetBtn:SetPoint("TOPLEFT", 16, -386)
 Loc(resetBtn, "opt_reset")
 resetBtn:SetScript("OnClick", function()
     if InCombatLockdown() then print(PREFIX .. T("no_combat")) return end
@@ -633,6 +652,7 @@ panel:SetScript("OnShow", function()
     cbAuto:SetChecked(DB.auto)
     cbLock:SetChecked(DB.locked)
     cbMinimap:SetChecked(not DB.minimap.hide)
+    cbFade:SetChecked(DB.fade)
     for key, cb in pairs(catBoxes) do cb:SetChecked(not DB.hide[key]) end
     RefreshThemeButtons()
     RefreshLangButtons()
@@ -764,6 +784,7 @@ events:RegisterEvent("BAG_UPDATE")
 events:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 events:RegisterEvent("BAG_UPDATE_COOLDOWN")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
+events:RegisterEvent("PLAYER_REGEN_DISABLED")
 events:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then return end
@@ -775,10 +796,14 @@ events:SetScript("OnEvent", function(_, event, arg1)
         if DB.open then bag:Show() end
         PlaceMinimapButton()
         minimapBtn:SetShown(not DB.minimap.hide)
+        UpdateToggleAlpha()
         RegisterPanel()
     elseif event == "BAG_UPDATE_COOLDOWN" then
         UpdateAllSlots()
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        UpdateToggleAlpha(true)
     elseif event == "PLAYER_REGEN_ENABLED" then
+        UpdateToggleAlpha(false)
         if pendingRebuild then Rebuild() end
     else
         QueueRebuild()
