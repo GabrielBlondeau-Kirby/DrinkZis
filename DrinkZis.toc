@@ -4,6 +4,7 @@
 ## Notes-frFR: Sac à potions flottant, rangé par catégorie (vie, mana, combat, buffs).
 ## IconTexture: Interface\AddOns\DrinkZis\Media\icon
 ## Author: Kirbye
+## X-Curse-Project-ID: 1790153
 ## Version: @project-version@
 ## SavedVariables: DrinkZisDB
 
