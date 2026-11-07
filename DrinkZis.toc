@@ -1,9 +1,10 @@
-## Interface: 16001, 11508, 20505, 30405, 40402, 50500
+## Interface: 16001
 ## Title: DrinkZis
-## Notes: Sac à potions flottant, rangé par catégorie (vie, mana, combat, buffs).
+## Notes: Floating potion bag sorted by category (health, mana, combat, buffs).
+## Notes-frFR: Sac à potions flottant, rangé par catégorie (vie, mana, combat, buffs).
 ## IconTexture: Interface\Icons\INV_Potion_51
 ## Author: Kirbye
-## Version: 1.0.0
+## Version: @project-version@
 ## SavedVariables: DrinkZisDB
 
 DrinkZis.lua

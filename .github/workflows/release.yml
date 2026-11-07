@@ -1,0 +1,22 @@
+name: Release
+
+# Publie sur CurseForge quand on pousse un tag vX.Y.Z (ex. : git tag v1.0.0 && git push --tags)
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: BigWigsMods/packager@v2
