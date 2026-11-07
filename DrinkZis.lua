@@ -22,28 +22,142 @@ local function SpellName(id)
 end
 
 ---------------------------------------------------------------------------
+-- Langues : textes de l'interface et mots-clés de reconnaissance des potions.
+-- La langue choisie ne change que l'interface ; les mots-clés de toutes les
+-- langues servent ensemble au classement (voir KW plus bas).
+-- Tout est comparé en minuscules ; string.lower ne touche pas aux lettres
+-- accentuées (« É » reste « É »), d'où « lixir » plutôt que « élixir ».
+---------------------------------------------------------------------------
+local LANGS = {
+    enUS = {
+        name = "English",
+        kw = {
+            use     = { "^use:" },
+            health  = { "health" },
+            mana    = { "mana" },
+            exclude = { "bandage" },
+            buff    = { "elixir", "flask", "scroll" },
+            potion  = { "potion", "healthstone", "mana" },
+            combat  = { "potion" },
+        },
+        ui = {
+            empty = "No potions",
+            cat_heal = "Health", cat_mana = "Mana", cat_combat = "Combat", cat_buff = "Buffs",
+            theme_dark = "Dark", theme_gold = "Gold", theme_arcane = "Arcane", theme_fel = "Fel", theme_blood = "Blood",
+            tip_click = "Click: open / close the bag",
+            tip_drag = "Shift + drag: move   /dz: options",
+            mm_left = "Left-click: open / close the bag",
+            mm_right = "Right-click: options",
+            mm_drag = "Drag: move around the minimap",
+            subtitle = "Floating potion bag, sorted by category.",
+            opt_auto = "Open automatically in combat, close afterwards",
+            opt_lock = "Lock position",
+            opt_minimap = "Show the minimap icon",
+            opt_cats = "Shown categories",
+            opt_theme = "Theme",
+            opt_lang = "Language",
+            opt_lang_hint = "Interface language. Auto = game language.",
+            lang_auto = "Auto (game)",
+            opt_reset = "Reset position",
+            no_combat = "not possible in combat.",
+            no_options_combat = "options unavailable in combat.",
+            pos_reset = "position reset.",
+            mm_shown = "minimap icon shown.",
+            mm_hidden = "minimap icon hidden.",
+        },
+    },
+    frFR = {
+        name = "Français",
+        kw = {
+            use     = { "^utiliser" },
+            health  = { "points de vie" },
+            mana    = { "points de mana", "mana" },
+            exclude = { "bandage" },
+            buff    = { "lixir", "flacon", "parchemin" },
+            potion  = { "potion", "pierre de soins", "mana" },
+            combat  = { "potion" },
+        },
+        ui = {
+            empty = "Aucune potion",
+            cat_heal = "Vie", cat_mana = "Mana", cat_combat = "Combat", cat_buff = "Buffs",
+            theme_dark = "Sombre", theme_gold = "Doré", theme_arcane = "Arcane", theme_fel = "Gangrène", theme_blood = "Sang",
+            tip_click = "Clic : ouvrir / fermer le sac",
+            tip_drag = "Maj + glisser : déplacer   /dz : options",
+            mm_left = "Clic gauche : ouvrir / fermer le sac",
+            mm_right = "Clic droit : options",
+            mm_drag = "Glisser : déplacer autour de la minimap",
+            subtitle = "Sac à potions flottant, rangé par catégorie.",
+            opt_auto = "Ouvrir automatiquement en combat, refermer après",
+            opt_lock = "Verrouiller la position",
+            opt_minimap = "Afficher l'icône autour de la minimap",
+            opt_cats = "Catégories affichées",
+            opt_theme = "Thème",
+            opt_lang = "Langue",
+            opt_lang_hint = "Langue de l'interface. Auto = langue du jeu.",
+            lang_auto = "Auto (jeu)",
+            opt_reset = "Réinitialiser la position",
+            no_combat = "impossible en combat.",
+            no_options_combat = "options indisponibles en combat.",
+            pos_reset = "position réinitialisée.",
+            mm_shown = "icône de la minimap affichée.",
+            mm_hidden = "icône de la minimap masquée.",
+        },
+    },
+}
+local LANG_CHOICES = { "auto", "enUS", "frFR" }
+
+-- Le classement lit les textes du client, quelle que soit la langue choisie
+-- pour l'interface : on cherche donc les mots-clés de toutes les langues.
+local KW = {}
+for _, lang in pairs(LANGS) do
+    for group, words in pairs(lang.kw) do
+        KW[group] = KW[group] or {}
+        for _, w in ipairs(words) do table.insert(KW[group], w) end
+    end
+end
+
+local DB
+local L = LANGS[GetLocale() == "frFR" and "frFR" or "enUS"]
+
+-- Langue effective : celle choisie, sinon celle du client (anglais par défaut).
+local function ResolveLang()
+    local choice = DB and DB.lang or "auto"
+    if LANGS[choice] then return LANGS[choice] end
+    return LANGS[GetLocale() == "frFR" and "frFR" or "enUS"]
+end
+
+local function T(key) return L.ui[key] or LANGS.enUS.ui[key] or key end
+
+-- Textes à retraduire quand on change de langue : { objet, clé }.
+local localized = {}
+local function Loc(obj, key)
+    table.insert(localized, { obj, key })
+    obj:SetText(T(key))
+    return obj
+end
+
+---------------------------------------------------------------------------
 -- Catégories et thèmes
 ---------------------------------------------------------------------------
 local CATEGORIES = {
-    { key = "heal",   label = "Vie",    color = { 0.95, 0.25, 0.25 } },
-    { key = "mana",   label = "Mana",   color = { 0.30, 0.55, 1.00 } },
-    { key = "combat", label = "Combat", color = { 1.00, 0.60, 0.10 } },
-    { key = "buff",   label = "Buffs",  color = { 0.70, 0.40, 1.00 } },
+    { key = "heal",   icon = "Interface\\Icons\\Spell_Holy_Heal",             color = { 0.95, 0.25, 0.25 } },
+    { key = "mana",   icon = "Interface\\Icons\\Spell_Nature_ManaRegenTotem", color = { 0.30, 0.55, 1.00 } },
+    { key = "combat", icon = "Interface\\Icons\\Ability_DualWield",           color = { 1.00, 0.60, 0.10 } },
+    { key = "buff",   icon = "Interface\\Icons\\Spell_Holy_WordFortitude",    color = { 0.70, 0.40, 1.00 } },
 }
 local CAT_BY_KEY = {}
 for _, c in ipairs(CATEGORIES) do CAT_BY_KEY[c.key] = c end
 
 local THEMES = {
-    { key = "dark",   label = "Sombre",    bg = { 0, 0, 0, 0.80 },          border = { 0.55, 0.55, 0.55 } },
-    { key = "gold",   label = "Doré",      bg = { 0.10, 0.07, 0.03, 0.88 }, border = { 1.00, 0.80, 0.20 } },
-    { key = "arcane", label = "Arcane",    bg = { 0.05, 0.03, 0.15, 0.88 }, border = { 0.65, 0.45, 1.00 } },
-    { key = "fel",    label = "Gangrène",  bg = { 0.02, 0.10, 0.02, 0.88 }, border = { 0.35, 1.00, 0.20 } },
-    { key = "blood",  label = "Sang",      bg = { 0.12, 0.02, 0.02, 0.88 }, border = { 0.90, 0.15, 0.15 } },
+    { key = "dark",   bg = { 0, 0, 0, 0.80 },          border = { 0.55, 0.55, 0.55 } },
+    { key = "gold",   bg = { 0.10, 0.07, 0.03, 0.88 }, border = { 1.00, 0.80, 0.20 } },
+    { key = "arcane", bg = { 0.05, 0.03, 0.15, 0.88 }, border = { 0.65, 0.45, 1.00 } },
+    { key = "fel",    bg = { 0.02, 0.10, 0.02, 0.88 }, border = { 0.35, 1.00, 0.20 } },
+    { key = "blood",  bg = { 0.12, 0.02, 0.02, 0.88 }, border = { 0.90, 0.15, 0.15 } },
 }
 local THEME_BY_KEY = {}
 for _, t in ipairs(THEMES) do THEME_BY_KEY[t.key] = t end
 
-local DB
 local function InitDB()
     DrinkZisDB = DrinkZisDB or {}
     DB = DrinkZisDB
@@ -51,6 +165,7 @@ local function InitDB()
     DB.theme = THEME_BY_KEY[DB.theme or ""] and DB.theme or "dark"
     DB.hide = DB.hide or {}
     DB.minimap = DB.minimap or { angle = 200, hide = false }
+    DB.lang = LANGS[DB.lang or ""] and DB.lang or "auto"
 end
 
 ---------------------------------------------------------------------------
@@ -72,7 +187,9 @@ local function UseLine(itemID)
         local text = fs and fs:GetText()
         if text then
             text = text:lower()
-            if text:find("^utiliser") or text:find("^use:") then return text end
+            for _, pattern in ipairs(KW.use) do
+                if text:find(pattern) then return text end
+            end
         end
     end
     return ""
@@ -96,19 +213,17 @@ local function Classify(itemID)
     if classID == 0 and spell and spell ~= FOOD and spell ~= DRINK then
         local use = UseLine(itemID)
         if use == nil then return nil end
-        local n = name:lower()
-        local health = Has(use, { "points de vie", "health" })
-        local mana   = Has(use, { "points de mana", "mana" })
-        if Has(n, { "bandage" }) then
+        local n, kw = name:lower(), KW
+        if Has(n, kw.exclude) then
             result = false
-        elseif Has(n, { "élixir", "elixir", "flacon", "flask", "parchemin", "scroll" }) then
+        elseif Has(n, kw.buff) then
             result = "buff"
-        elseif Has(n, { "potion", "pierre de soins", "healthstone", "mana" }) then
-            if health then
+        elseif Has(n, kw.potion) then
+            if Has(use, kw.health) then
                 result = "heal"
-            elseif mana then
+            elseif Has(use, kw.mana) then
                 result = "mana"
-            elseif Has(n, { "potion" }) then
+            elseif Has(n, kw.combat) then
                 result = "combat"
             end
         end
@@ -182,8 +297,7 @@ bag:SetPoint("TOPLEFT", toggle, "CENTER", 0, 2)
 bag:SetSize(200, 60)
 bag:Hide()
 
-local emptyText = bag:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-emptyText:SetText("Aucune potion")
+local emptyText = Loc(bag:CreateFontString(nil, "OVERLAY", "GameFontDisable"), "empty")
 
 toggle:SetFrameRef("bag", bag)
 toggle:SetAttribute("_onclick", [[
@@ -229,7 +343,8 @@ end
 ---------------------------------------------------------------------------
 -- Emplacements (boutons sécurisés, créés / placés hors combat uniquement)
 ---------------------------------------------------------------------------
-local SLOT, GAP, COLS, LABEL_W = 34, 4, 6, 52
+local SLOT, GAP, COLS, CAT_ICON = 34, 4, 6, 24
+local LABEL_W = CAT_ICON + 10 -- colonne des icônes de catégorie
 local slots, labels = {}, {}
 
 local function UpdateSlot(b)
@@ -274,7 +389,7 @@ local function GetSlot(i)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetHyperlink("item:" .. self.itemID)
         local c = CAT_BY_KEY[self.cat]
-        GameTooltip:AddLine("DrinkZis — " .. c.label, c.color[1], c.color[2], c.color[3])
+        GameTooltip:AddLine("DrinkZis — " .. T("cat_" .. c.key), c.color[1], c.color[2], c.color[3])
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -283,14 +398,32 @@ local function GetSlot(i)
     return b
 end
 
+-- Icône de catégorie (cadre non sécurisé) : bordure colorée + nom en infobulle.
 local function GetLabel(i)
     local l = labels[i]
-    if not l then
-        l = bag:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        l:SetJustifyH("LEFT")
-        l:SetWidth(LABEL_W - 4)
-        labels[i] = l
-    end
+    if l then return l end
+    l = CreateFrame("Frame", nil, bag)
+    l:SetSize(CAT_ICON, CAT_ICON)
+    l:EnableMouse(true)
+
+    l.border = l:CreateTexture(nil, "BACKGROUND")
+    l.border:SetPoint("TOPLEFT", -2, 2)
+    l.border:SetPoint("BOTTOMRIGHT", 2, -2)
+    l.border:SetColorTexture(1, 1, 1, 1)
+
+    l.icon = l:CreateTexture(nil, "ARTWORK")
+    l.icon:SetAllPoints()
+    l.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+    l:SetScript("OnEnter", function(self)
+        local c = CAT_BY_KEY[self.cat]
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:SetText(T("cat_" .. c.key), c.color[1], c.color[2], c.color[3])
+        GameTooltip:Show()
+    end)
+    l:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    labels[i] = l
     return l
 end
 
@@ -310,10 +443,11 @@ local function Rebuild()
         if list and not DB.hide[c.key] then
             nLabel = nLabel + 1
             local l = GetLabel(nLabel)
-            l:SetText(c.label)
-            l:SetTextColor(unpack(c.color))
+            l.cat = c.key
+            l.icon:SetTexture(c.icon)
+            l.border:SetVertexColor(unpack(c.color))
             l:ClearAllPoints()
-            l:SetPoint("LEFT", bag, "TOPLEFT", x0, y - SLOT / 2)
+            l:SetPoint("LEFT", bag, "TOPLEFT", x0 + 2, y - SLOT / 2)
             l:Show()
             for i, id in ipairs(list) do
                 nSlot = nSlot + 1
@@ -367,8 +501,8 @@ end)
 toggle:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText("DrinkZis", 0.4, 0.8, 1)
-    GameTooltip:AddLine("Clic : ouvrir / fermer le sac", 1, 1, 1)
-    GameTooltip:AddLine("Maj + glisser : déplacer   /dz : options", 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(T("tip_click"), 1, 1, 1)
+    GameTooltip:AddLine(T("tip_drag"), 0.6, 0.6, 0.6)
     GameTooltip:Show()
 end)
 toggle:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -390,21 +524,22 @@ local panel = CreateFrame("Frame", "DrinkZisOptions")
 panel.name = "DrinkZis"
 panel:Hide()
 
-local function Label(parent, text, template)
+-- key : clé de traduction (Loc) ; raw : texte fixe.
+local function Label(parent, key, template, raw)
     local fs = parent:CreateFontString(nil, "ARTWORK", template or "GameFontHighlight")
-    fs:SetText(text)
+    if raw then fs:SetText(raw) else Loc(fs, key) end
     return fs
 end
 
-local function CheckBox(text, x, y, onClick)
+local function CheckBox(key, x, y, onClick)
     local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
     cb:SetSize(26, 26)
     cb:SetPoint("TOPLEFT", x, y)
-    cb.label = Label(cb, text)
+    cb.label = Label(cb, key)
     cb.label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
     cb:SetScript("OnClick", function(self)
         if InCombatLockdown() then
-            print(PREFIX .. "impossible en combat.")
+            print(PREFIX .. T("no_combat"))
             self:SetChecked(not self:GetChecked())
             return
         end
@@ -413,21 +548,21 @@ local function CheckBox(text, x, y, onClick)
     return cb
 end
 
-Label(panel, "DrinkZis", "GameFontNormalLarge"):SetPoint("TOPLEFT", 16, -16)
-Label(panel, "Sac à potions flottant, rangé par catégorie.", "GameFontHighlightSmall"):SetPoint("TOPLEFT", 16, -40)
+Label(panel, nil, "GameFontNormalLarge", "DrinkZis"):SetPoint("TOPLEFT", 16, -16)
+Label(panel, "subtitle", "GameFontHighlightSmall"):SetPoint("TOPLEFT", 16, -40)
 
-local cbAuto = CheckBox("Ouvrir automatiquement en combat, refermer après", 16, -64, function(v)
+local cbAuto = CheckBox("opt_auto", 16, -64, function(v)
     DB.auto = v
     bag:SetAttribute("auto", v)
 end)
-local cbLock = CheckBox("Verrouiller la position", 16, -92, function(v) DB.locked = v end)
+local cbLock = CheckBox("opt_lock", 16, -92, function(v) DB.locked = v end)
 local SetMinimapShown -- défini plus bas
-local cbMinimap = CheckBox("Afficher l'icône autour de la minimap", 16, -120, function(v) SetMinimapShown(v) end)
+local cbMinimap = CheckBox("opt_minimap", 16, -120, function(v) SetMinimapShown(v) end)
 
-Label(panel, "Catégories affichées", "GameFontNormal"):SetPoint("TOPLEFT", 16, -162)
+Label(panel, "opt_cats", "GameFontNormal"):SetPoint("TOPLEFT", 16, -162)
 local catBoxes = {}
 for i, c in ipairs(CATEGORIES) do
-    local cb = CheckBox(c.label, 16 + (i - 1) * 120, -184, function(v)
+    local cb = CheckBox("cat_" .. c.key, 16 + (i - 1) * 120, -184, function(v)
         DB.hide[c.key] = not v or nil
         Rebuild()
     end)
@@ -435,7 +570,7 @@ for i, c in ipairs(CATEGORIES) do
     catBoxes[c.key] = cb
 end
 
-Label(panel, "Thème", "GameFontNormal"):SetPoint("TOPLEFT", 16, -226)
+Label(panel, "opt_theme", "GameFontNormal"):SetPoint("TOPLEFT", 16, -226)
 local themeButtons = {}
 local function RefreshThemeButtons()
     for key, b in pairs(themeButtons) do
@@ -446,7 +581,7 @@ for i, t in ipairs(THEMES) do
     local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     b:SetSize(100, 24)
     b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -248)
-    b:SetText(t.label)
+    Loc(b, "theme_" .. t.key)
     b:GetFontString():SetTextColor(unpack(t.border))
     b:SetScript("OnClick", function()
         DB.theme = t.key
@@ -456,12 +591,40 @@ for i, t in ipairs(THEMES) do
     themeButtons[t.key] = b
 end
 
+Label(panel, "opt_lang", "GameFontNormal"):SetPoint("TOPLEFT", 16, -292)
+Label(panel, "opt_lang_hint", "GameFontHighlightSmall"):SetPoint("TOPLEFT", 90, -294)
+local langButtons = {}
+local function RefreshLangButtons()
+    for key, b in pairs(langButtons) do
+        b:SetEnabled(key ~= DB.lang) -- la langue active apparaît grisée
+    end
+end
+
+-- Change la langue de l'interface (le classement des potions n'en dépend pas).
+local function ApplyLanguage()
+    L = ResolveLang()
+    for _, entry in ipairs(localized) do entry[1]:SetText(T(entry[2])) end
+end
+
+for i, choice in ipairs(LANG_CHOICES) do
+    local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    b:SetSize(100, 24)
+    b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -314)
+    if LANGS[choice] then b:SetText(LANGS[choice].name) else Loc(b, "lang_auto") end
+    b:SetScript("OnClick", function()
+        DB.lang = choice
+        ApplyLanguage()
+        RefreshLangButtons()
+    end)
+    langButtons[choice] = b
+end
+
 local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-resetBtn:SetSize(160, 22)
-resetBtn:SetPoint("TOPLEFT", 16, -292)
-resetBtn:SetText("Réinitialiser la position")
+resetBtn:SetSize(180, 22)
+resetBtn:SetPoint("TOPLEFT", 16, -358)
+Loc(resetBtn, "opt_reset")
 resetBtn:SetScript("OnClick", function()
-    if InCombatLockdown() then print(PREFIX .. "impossible en combat.") return end
+    if InCombatLockdown() then print(PREFIX .. T("no_combat")) return end
     DB.pos = nil
     ApplyPosition()
 end)
@@ -472,6 +635,7 @@ panel:SetScript("OnShow", function()
     cbMinimap:SetChecked(not DB.minimap.hide)
     for key, cb in pairs(catBoxes) do cb:SetChecked(not DB.hide[key]) end
     RefreshThemeButtons()
+    RefreshLangButtons()
 end)
 
 local settingsCategory
@@ -531,7 +695,7 @@ minimapBtn:SetAttribute("_onclick", [[
 ]])
 minimapBtn:HookScript("OnClick", function(_, mouse)
     if mouse ~= "RightButton" then return end
-    if InCombatLockdown() then print(PREFIX .. "options indisponibles en combat.") return end
+    if InCombatLockdown() then print(PREFIX .. T("no_options_combat")) return end
     OpenPanel()
 end)
 
@@ -564,9 +728,9 @@ minimapBtn:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil
 minimapBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:SetText("DrinkZis", 0.4, 0.8, 1)
-    GameTooltip:AddLine("Clic gauche : ouvrir / fermer le sac", 1, 1, 1)
-    GameTooltip:AddLine("Clic droit : options", 1, 1, 1)
-    GameTooltip:AddLine("Glisser : déplacer autour de la minimap", 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(T("mm_left"), 1, 1, 1)
+    GameTooltip:AddLine(T("mm_right"), 1, 1, 1)
+    GameTooltip:AddLine(T("mm_drag"), 0.6, 0.6, 0.6)
     GameTooltip:Show()
 end)
 minimapBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -604,6 +768,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then return end
         InitDB()
+        ApplyLanguage()
         ApplyPosition()
         ApplyTheme()
         bag:SetAttribute("auto", DB.auto)
@@ -625,14 +790,14 @@ SLASH_DRINKZIS2 = "/drinkzis"
 SlashCmdList.DRINKZIS = function(msg)
     msg = (msg or ""):lower()
     if msg == "reset" then
-        if InCombatLockdown() then print(PREFIX .. "pas en combat.") return end
+        if InCombatLockdown() then print(PREFIX .. T("no_combat")) return end
         DB.pos = nil
         ApplyPosition()
-        print(PREFIX .. "position réinitialisée.")
+        print(PREFIX .. T("pos_reset"))
     elseif msg == "minimap" then
-        if InCombatLockdown() then print(PREFIX .. "pas en combat.") return end
+        if InCombatLockdown() then print(PREFIX .. T("no_combat")) return end
         SetMinimapShown(DB.minimap.hide)
-        print(PREFIX .. "icône de la minimap " .. (DB.minimap.hide and "masquée." or "affichée."))
+        print(PREFIX .. T(DB.minimap.hide and "mm_hidden" or "mm_shown"))
     else
         OpenPanel()
     end

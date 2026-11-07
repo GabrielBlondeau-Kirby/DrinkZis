@@ -11,6 +11,7 @@ cadre qui range les potions des sacs par catégorie.
 | **Buffs**  | élixirs, flacons, parchemins |
 
 Un emplacement par type d'objet, avec la quantité totale et la recharge.
+Chaque ligne commence par l'icône de sa catégorie (nom au survol).
 
 ## Utilisation
 
@@ -29,14 +30,17 @@ Un emplacement par type d'objet, avec la quantité totale et la recharge.
 - Catégories affichées.
 - Thèmes : Sombre, Doré, Arcane, Gangrène, Sang.
 - Verrouiller la position.
+- Langue de l'interface : Auto (langue du jeu), English, Français. Elle ne
+  change pas le classement des potions, qui reconnaît les clients anglais et
+  français dans tous les cas.
 
 ## Limites
 
 - En combat, le jeu interdit de déplacer ou créer des boutons : une nouvelle
   potion n'apparaît qu'à la sortie du combat. Les quantités et recharges, elles,
   se mettent à jour en direct.
-- Le classement se base sur le nom et la description de l'objet (français et
-  anglais).
+- Le classement se base sur le nom et la description de l'objet : seuls les
+  clients anglais et français sont reconnus.
 
 ## Licence
 
