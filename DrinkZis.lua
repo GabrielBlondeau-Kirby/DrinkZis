@@ -2,7 +2,7 @@
 -- Une icône ronde ouvre / ferme le sac (même en combat, via un handler sécurisé).
 local ADDON = ...
 local PREFIX = "|cff66ccffDrinkZis|r : "
-local ICON = "Interface\\Icons\\INV_Potion_51"
+local ICON = "Interface\\AddOns\\DrinkZis\\Media\\icon"
 
 ---------------------------------------------------------------------------
 -- Compatibilité API
@@ -50,6 +50,7 @@ local function InitDB()
     if DB.auto == nil then DB.auto = true end
     DB.theme = THEME_BY_KEY[DB.theme or ""] and DB.theme or "dark"
     DB.hide = DB.hide or {}
+    DB.minimap = DB.minimap or { angle = 200, hide = false }
 end
 
 ---------------------------------------------------------------------------
@@ -420,11 +421,13 @@ local cbAuto = CheckBox("Ouvrir automatiquement en combat, refermer après", 16,
     bag:SetAttribute("auto", v)
 end)
 local cbLock = CheckBox("Verrouiller la position", 16, -92, function(v) DB.locked = v end)
+local SetMinimapShown -- défini plus bas
+local cbMinimap = CheckBox("Afficher l'icône autour de la minimap", 16, -120, function(v) SetMinimapShown(v) end)
 
-Label(panel, "Catégories affichées", "GameFontNormal"):SetPoint("TOPLEFT", 16, -134)
+Label(panel, "Catégories affichées", "GameFontNormal"):SetPoint("TOPLEFT", 16, -162)
 local catBoxes = {}
 for i, c in ipairs(CATEGORIES) do
-    local cb = CheckBox(c.label, 16 + (i - 1) * 120, -156, function(v)
+    local cb = CheckBox(c.label, 16 + (i - 1) * 120, -184, function(v)
         DB.hide[c.key] = not v or nil
         Rebuild()
     end)
@@ -432,7 +435,7 @@ for i, c in ipairs(CATEGORIES) do
     catBoxes[c.key] = cb
 end
 
-Label(panel, "Thème", "GameFontNormal"):SetPoint("TOPLEFT", 16, -198)
+Label(panel, "Thème", "GameFontNormal"):SetPoint("TOPLEFT", 16, -226)
 local themeButtons = {}
 local function RefreshThemeButtons()
     for key, b in pairs(themeButtons) do
@@ -442,7 +445,7 @@ end
 for i, t in ipairs(THEMES) do
     local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     b:SetSize(100, 24)
-    b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -220)
+    b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -248)
     b:SetText(t.label)
     b:GetFontString():SetTextColor(unpack(t.border))
     b:SetScript("OnClick", function()
@@ -455,7 +458,7 @@ end
 
 local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 resetBtn:SetSize(160, 22)
-resetBtn:SetPoint("TOPLEFT", 16, -264)
+resetBtn:SetPoint("TOPLEFT", 16, -292)
 resetBtn:SetText("Réinitialiser la position")
 resetBtn:SetScript("OnClick", function()
     if InCombatLockdown() then print(PREFIX .. "impossible en combat.") return end
@@ -466,6 +469,7 @@ end)
 panel:SetScript("OnShow", function()
     cbAuto:SetChecked(DB.auto)
     cbLock:SetChecked(DB.locked)
+    cbMinimap:SetChecked(not DB.minimap.hide)
     for key, cb in pairs(catBoxes) do cb:SetChecked(not DB.hide[key]) end
     RefreshThemeButtons()
 end)
@@ -488,6 +492,84 @@ local function OpenPanel()
         InterfaceOptionsFrame_OpenToCategory(panel)
     end
 end
+
+---------------------------------------------------------------------------
+-- Icône autour de la minimap
+-- Clic gauche : ouvre / ferme le sac (sécurisé, marche en combat).
+-- Clic droit : options. Glisser : faire tourner autour de la minimap.
+---------------------------------------------------------------------------
+local minimapBtn = CreateFrame("Button", "DrinkZisMinimapButton", Minimap, "SecureHandlerClickTemplate")
+minimapBtn:SetSize(31, 31)
+minimapBtn:SetFrameStrata("MEDIUM")
+minimapBtn:SetFrameLevel(8)
+minimapBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+minimapBtn:RegisterForDrag("LeftButton")
+minimapBtn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+local mmBg = minimapBtn:CreateTexture(nil, "BACKGROUND")
+mmBg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+mmBg:SetSize(20, 20)
+mmBg:SetPoint("TOPLEFT", 7, -5)
+
+local mmIcon = minimapBtn:CreateTexture(nil, "ARTWORK")
+mmIcon:SetTexture(ICON)
+mmIcon:SetSize(17, 17)
+mmIcon:SetPoint("TOPLEFT", 7, -6)
+mmIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+local mmBorder = minimapBtn:CreateTexture(nil, "OVERLAY")
+mmBorder:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+mmBorder:SetSize(53, 53)
+mmBorder:SetPoint("TOPLEFT")
+
+minimapBtn:SetFrameRef("bag", bag)
+minimapBtn:SetAttribute("_onclick", [[
+    if button ~= "LeftButton" then return end
+    local bag = self:GetFrameRef("bag")
+    bag:SetAttribute("autoopened", nil)
+    if bag:IsShown() then bag:Hide() else bag:Show() end
+]])
+minimapBtn:HookScript("OnClick", function(_, mouse)
+    if mouse ~= "RightButton" then return end
+    if InCombatLockdown() then print(PREFIX .. "options indisponibles en combat.") return end
+    OpenPanel()
+end)
+
+local function PlaceMinimapButton()
+    local a = math.rad(DB.minimap.angle)
+    local r = Minimap:GetWidth() / 2 + 5
+    minimapBtn:ClearAllPoints()
+    minimapBtn:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
+end
+
+SetMinimapShown = function(shown)
+    DB.minimap.hide = not shown
+    minimapBtn:SetShown(shown)
+end
+
+-- Bouton sécurisé : on ne le déplace qu'hors combat.
+minimapBtn:SetScript("OnDragStart", function(self)
+    if InCombatLockdown() then return end
+    self:SetScript("OnUpdate", function()
+        if InCombatLockdown() then self:SetScript("OnUpdate", nil) return end
+        local mx, my = Minimap:GetCenter()
+        local px, py = GetCursorPosition()
+        local scale = Minimap:GetEffectiveScale()
+        DB.minimap.angle = math.deg(math.atan2(py / scale - my, px / scale - mx))
+        PlaceMinimapButton()
+    end)
+end)
+minimapBtn:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+
+minimapBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText("DrinkZis", 0.4, 0.8, 1)
+    GameTooltip:AddLine("Clic gauche : ouvrir / fermer le sac", 1, 1, 1)
+    GameTooltip:AddLine("Clic droit : options", 1, 1, 1)
+    GameTooltip:AddLine("Glisser : déplacer autour de la minimap", 0.6, 0.6, 0.6)
+    GameTooltip:Show()
+end)
+minimapBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 ---------------------------------------------------------------------------
 -- Événements
@@ -526,6 +608,8 @@ events:SetScript("OnEvent", function(_, event, arg1)
         ApplyTheme()
         bag:SetAttribute("auto", DB.auto)
         if DB.open then bag:Show() end
+        PlaceMinimapButton()
+        minimapBtn:SetShown(not DB.minimap.hide)
         RegisterPanel()
     elseif event == "BAG_UPDATE_COOLDOWN" then
         UpdateAllSlots()
@@ -545,6 +629,10 @@ SlashCmdList.DRINKZIS = function(msg)
         DB.pos = nil
         ApplyPosition()
         print(PREFIX .. "position réinitialisée.")
+    elseif msg == "minimap" then
+        if InCombatLockdown() then print(PREFIX .. "pas en combat.") return end
+        SetMinimapShown(DB.minimap.hide)
+        print(PREFIX .. "icône de la minimap " .. (DB.minimap.hide and "masquée." or "affichée."))
     else
         OpenPanel()
     end

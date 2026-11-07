@@ -17,7 +17,10 @@ Un emplacement par type d'objet, avec la quantité totale et la recharge.
 - Clic sur l'icône ronde : ouvrir / fermer le sac (marche aussi en combat).
 - Clic sur une potion : l'utiliser.
 - **Maj + glisser** l'icône : déplacer l'ensemble.
+- Icône autour de la minimap : clic gauche ouvre / ferme le sac (aussi en
+  combat), clic droit ouvre les options, glisser la fait tourner.
 - `/dz` : options (aussi dans Échap → Options → AddOns). `/dz reset` : position.
+  `/dz minimap` : afficher / masquer l'icône de la minimap.
 
 ### Options
 

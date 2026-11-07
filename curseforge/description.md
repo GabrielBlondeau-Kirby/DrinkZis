@@ -20,6 +20,7 @@ Made for **WoW Forever**.
 
 - Click the round button to open / close the bag.
 - **Shift + drag** the round button to move everything.
+- **Minimap icon**: left-click opens / closes the bag (works in combat), right-click opens the options, drag to move it around the minimap. `/dz minimap` shows / hides it.
 - `/dz` opens the options (also in *Esc → Options → AddOns*).
 
 Note: the game forbids creating buttons during combat, so a potion looted mid-fight shows up when combat ends. Counts and cooldowns update live.
@@ -33,4 +34,5 @@ Note: the game forbids creating buttons during combat, so a potion looted mid-fi
 - Un emplacement par objet, avec quantité totale et recharge.
 - Ouverture automatique en combat, fermeture à la sortie (option).
 - Thèmes : Sombre, Doré, Arcane, Gangrène, Sang.
+- Icône autour de la minimap : clic gauche = sac, clic droit = options.
 - `/dz` : options. **Maj + glisser** l'icône : déplacer.
