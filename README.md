@@ -7,7 +7,7 @@ cadre qui range les potions des sacs par catégorie.
 |-----------|---------|
 | **Vie**    | potions de soins, pierres de soins |
 | **Mana**   | potions de mana, gemmes de mana |
-| **Combat** | autres potions (vitesse, action libre, protections, rage…) |
+| **Combat** | autres potions (vitesse, action libre, protections, rage…), objets qui rendent de l'énergie (Thé de chardon) |
 | **Buffs**  | élixirs, flacons, parchemins |
 
 Un emplacement par type d'objet, avec la quantité totale et la recharge.

@@ -39,6 +39,7 @@ local LANGS = {
             buff    = { "elixir", "flask", "scroll" },
             potion  = { "potion", "healthstone", "mana" },
             combat  = { "potion" },
+            energy  = { "energy" },
         },
         ui = {
             empty = "No potions",
@@ -77,6 +78,7 @@ local LANGS = {
             buff    = { "lixir", "flacon", "parchemin" },
             potion  = { "potion", "pierre de soins", "mana" },
             combat  = { "potion" },
+            energy  = { "énergie" },
         },
         ui = {
             empty = "Aucune potion",
@@ -260,6 +262,9 @@ local function Classify(itemID)
             elseif Has(n, kw.combat) then
                 result = "combat"
             end
+        elseif Has(use, kw.energy) then
+            -- Thé de chardon et autres objets qui rendent de l'énergie.
+            result = "combat"
         end
     end
     if not complete then

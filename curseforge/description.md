@@ -9,7 +9,7 @@ Made for **WoW Forever**.
 - **Sorted by category**
   - **Health**: healing potions, healthstones.
   - **Mana**: mana potions, mana gems.
-  - **Combat**: other potions (swiftness, free action, protection, rage…).
+  - **Combat**: other potions (swiftness, free action, protection, rage…) and energy items (Thistle Tea).
   - **Buffs**: elixirs, flasks, scrolls.
 - One slot per item, with total count and cooldown.
 - **Opens in combat**: the round button works in combat too, and the bag can open automatically when combat starts and close when it ends.
