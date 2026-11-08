@@ -177,8 +177,24 @@ local FOOD, DRINK = SpellName(433), SpellName(430)
 
 local scan = CreateFrame("GameTooltip", "DrinkZisScanTip", nil, "GameTooltipTemplate")
 
--- Ligne « Utiliser : … » de la description, en minuscules ; nil si pas en cache.
-local function UseLine(itemID)
+-- Retire les codes couleur / liens et les espaces de tête, passe en minuscules.
+local function CleanLine(text)
+    text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
+    return (text:gsub("^%s+", ""):lower())
+end
+
+-- Lignes de l'infobulle (sauf le nom), nettoyées ; nil si l'objet n'est pas en cache.
+local function TooltipLines(itemID)
+    local lines = {}
+    if C_TooltipInfo and C_TooltipInfo.GetItemByID then
+        local data = C_TooltipInfo.GetItemByID(itemID)
+        if not data or not data.lines or #data.lines == 0 then return nil end
+        for i = 2, #data.lines do
+            local text = data.lines[i].leftText
+            if text and text ~= "" then table.insert(lines, CleanLine(text)) end
+        end
+        return lines
+    end
     scan:SetOwner(WorldFrame, "ANCHOR_NONE")
     scan:ClearLines()
     scan:SetHyperlink("item:" .. itemID)
@@ -187,14 +203,23 @@ local function UseLine(itemID)
     for i = 2, n do
         local fs = _G["DrinkZisScanTipTextLeft" .. i]
         local text = fs and fs:GetText()
-        if text then
-            text = text:lower()
-            for _, pattern in ipairs(KW.use) do
-                if text:find(pattern) then return text end
-            end
+        if text and text ~= "" then table.insert(lines, CleanLine(text)) end
+    end
+    return lines
+end
+
+-- Ligne « Utiliser : … » ; à défaut, toute la description (certaines potions
+-- n'ont pas ce préfixe, ou le client le formate autrement). nil si pas en cache.
+-- 2e valeur : true si la vraie ligne « Utiliser : » a été trouvée.
+local function UseLine(itemID)
+    local lines = TooltipLines(itemID)
+    if not lines then return nil end
+    for _, text in ipairs(lines) do
+        for _, pattern in ipairs(KW.use) do
+            if text:find(pattern) then return text, true end
         end
     end
-    return ""
+    return table.concat(lines, " "), false
 end
 
 local function Has(s, words)
@@ -205,16 +230,23 @@ local function Has(s, words)
 end
 
 local cache = {} -- itemID -> clé de catégorie, ou false
+-- À la connexion, le sort et la description d'un objet arrivent parfois après
+-- son nom : un classement fait sans eux n'est pas mis en cache, on réessaie.
+local firstTry, RETRY_FOR = {}, 20 -- itemID -> GetTime() du 1er essai ; secondes
+
 -- Renvoie la catégorie, false si ce n'est pas une potion, nil si pas encore chargé.
+-- 2e valeur : true si le résultat est provisoire (à refaire plus tard).
 local function Classify(itemID)
     if cache[itemID] ~= nil then return cache[itemID] end
     local name, _, _, _, _, _, _, _, _, _, _, classID = GetItemInfoCompat(itemID)
     if not name then return nil end
-    local result = false
+    local result, complete = false, true
     local spell = GetItemSpellCompat(itemID)
+    if classID == 0 and not spell then complete = false end
     if classID == 0 and spell and spell ~= FOOD and spell ~= DRINK then
-        local use = UseLine(itemID)
+        local use, found = UseLine(itemID)
         if use == nil then return nil end
+        complete = found
         local n, kw = name:lower(), KW
         if Has(n, kw.exclude) then
             result = false
@@ -230,6 +262,10 @@ local function Classify(itemID)
             end
         end
     end
+    if not complete then
+        firstTry[itemID] = firstTry[itemID] or GetTime()
+        if GetTime() - firstTry[itemID] < RETRY_FOR then return result, true end
+    end
     cache[itemID] = result
     return result
 end
@@ -241,10 +277,10 @@ local function CollectItems()
         for slot = 1, (GetNumSlots(bag) or 0) do
             local id = GetItemID(bag, slot)
             if id and not seen[id] then
-                local cat = Classify(id)
-                if cat == nil then missing = true end
+                seen[id] = true
+                local cat, provisional = Classify(id)
+                if cat == nil or provisional then missing = true end
                 if cat then
-                    seen[id] = true
                     byCat[cat] = byCat[cat] or {}
                     table.insert(byCat[cat], id)
                 end
@@ -309,9 +345,11 @@ toggle:SetAttribute("_onclick", [[
 ]])
 
 -- Ouverture auto en combat / fermeture à la sortie (seulement si c'est l'auto qui a ouvert).
+-- États en toutes lettres : les clients récents convertissent "1" / "0" en nombres,
+-- et la comparaison avec une chaîne échouait.
 bag:SetAttribute("_onstate-combat", [[
     if not self:GetAttribute("auto") then return end
-    if newstate == "1" then
+    if newstate == "on" then
         if not self:IsShown() then
             self:SetAttribute("autoopened", 1)
             self:Show()
@@ -321,7 +359,7 @@ bag:SetAttribute("_onstate-combat", [[
         self:SetAttribute("autoopened", nil)
     end
 ]])
-RegisterStateDriver(bag, "combat", "[combat] 1; 0")
+RegisterStateDriver(bag, "combat", "[combat] on; off")
 
 -- On ne mémorise que les ouvertures / fermetures manuelles.
 bag:HookScript("OnShow", function(self) if DB and not self:GetAttribute("autoopened") then DB.open = true end end)
@@ -429,14 +467,22 @@ local function GetLabel(i)
     return l
 end
 
-local pendingRebuild = false
+local pendingRebuild, retryScheduled = false, false
 
 local function Rebuild()
     if not DB then return end
     if InCombatLockdown() then pendingRebuild = true return end
     pendingRebuild = false
 
-    local byCat = CollectItems()
+    local byCat, missing = CollectItems()
+    -- Des objets pas encore (ou pas entièrement) chargés : on refait un tour plus tard.
+    if missing and not retryScheduled and C_Timer then
+        retryScheduled = true
+        C_Timer.After(2, function()
+            retryScheduled = false
+            Rebuild()
+        end)
+    end
     local x0 = TOGGLE / 2 + 10 -- dégage l'icône ronde qui chevauche le coin
     local y, nSlot, nLabel, maxCols = -10, 0, 0, 0
 
@@ -819,6 +865,26 @@ SlashCmdList.DRINKZIS = function(msg)
         DB.pos = nil
         ApplyPosition()
         print(PREFIX .. T("pos_reset"))
+    elseif msg == "debug" then
+        -- Reclasse tout et affiche ce que l'addon lit pour chaque consommable.
+        wipe(cache)
+        local seen = {}
+        for b = 0, 4 do
+            for s = 1, (GetNumSlots(b) or 0) do
+                local id = GetItemID(b, s)
+                if id and not seen[id] then
+                    seen[id] = true
+                    local name, _, _, _, _, _, _, _, _, _, _, classID = GetItemInfoCompat(id)
+                    if classID == 0 then
+                        local use = UseLine(id)
+                        print(("%s|cffffd100%s|r [%d] → %s | spell=%s | use=%s"):format(
+                            PREFIX, name, id, tostring((Classify(id))),
+                            tostring((GetItemSpellCompat(id))), use and use:sub(1, 120) or "nil (pas en cache)"))
+                    end
+                end
+            end
+        end
+        QueueRebuild()
     elseif msg == "minimap" then
         if InCombatLockdown() then print(PREFIX .. T("no_combat")) return end
         SetMinimapShown(DB.minimap.hide)

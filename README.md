@@ -22,6 +22,8 @@ Chaque ligne commence par l'icône de sa catégorie (nom au survol).
   combat), clic droit ouvre les options, glisser la fait tourner.
 - `/dz` : options (aussi dans Échap → Options → AddOns). `/dz reset` : position.
   `/dz minimap` : afficher / masquer l'icône de la minimap.
+  `/dz debug` : affiche dans le chat la catégorie et la description lue pour
+  chaque consommable des sacs (utile si une potion est mal rangée).
 
 ### Options
 
