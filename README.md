@@ -30,7 +30,7 @@ Chaque ligne commence par l'icône de sa catégorie (nom au survol).
 - Ouverture automatique en combat, fermeture à la sortie (seulement si c'est
   le combat qui l'a ouvert).
 - Catégories affichées.
-- Thèmes : Sombre, Doré, Arcane, Gangrène, Sang.
+- Thèmes : Sombre, Doré, Arcane, Gangrène, Sang, WoWtesk (look de l’interface WoW).
 - Verrouiller la position.
 - Icône ronde transparente hors combat : elle redevient opaque au survol et
   en combat.
