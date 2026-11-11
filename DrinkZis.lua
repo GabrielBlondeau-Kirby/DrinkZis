@@ -44,7 +44,7 @@ local LANGS = {
         ui = {
             empty = "No potions",
             cat_heal = "Health", cat_mana = "Mana", cat_combat = "Combat", cat_buff = "Buffs",
-            theme_dark = "Dark", theme_gold = "Gold", theme_arcane = "Arcane", theme_fel = "Fel", theme_blood = "Blood",
+            theme_dark = "Dark", theme_gold = "Gold", theme_arcane = "Arcane", theme_fel = "Fel", theme_blood = "Blood", theme_wow = "WoWtesk",
             tip_click = "Click: open / close the bag",
             tip_drag = "Shift + drag: move   /dz: options",
             mm_left = "Left-click: open / close the bag",
@@ -83,7 +83,7 @@ local LANGS = {
         ui = {
             empty = "Aucune potion",
             cat_heal = "Vie", cat_mana = "Mana", cat_combat = "Combat", cat_buff = "Buffs",
-            theme_dark = "Sombre", theme_gold = "Doré", theme_arcane = "Arcane", theme_fel = "Gangrène", theme_blood = "Sang",
+            theme_dark = "Sombre", theme_gold = "Doré", theme_arcane = "Arcane", theme_fel = "Gangrène", theme_blood = "Sang", theme_wow = "WoWtesk",
             tip_click = "Clic : ouvrir / fermer le sac",
             tip_drag = "Maj + glisser : déplacer   /dz : options",
             mm_left = "Clic gauche : ouvrir / fermer le sac",
@@ -158,6 +158,14 @@ local THEMES = {
     { key = "arcane", bg = { 0.05, 0.03, 0.15, 0.88 }, border = { 0.65, 0.45, 1.00 } },
     { key = "fel",    bg = { 0.02, 0.10, 0.02, 0.88 }, border = { 0.35, 1.00, 0.20 } },
     { key = "blood",  bg = { 0.12, 0.02, 0.02, 0.88 }, border = { 0.90, 0.15, 0.15 } },
+    -- « WoWtesk » : cadre de dialogue de l'interface Blizzard, textures d'origine non teintées.
+    { key = "wow", bg = { 1, 1, 1, 1 }, border = { 1, 1, 1 }, ring = { 1, 1, 1 }, label = { 1, 0.82, 0 },
+      backdrop = {
+          bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+          edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+          tile = true, tileSize = 32, edgeSize = 20,
+          insets = { left = 5, right = 5, top = 5, bottom = 5 },
+      } },
 }
 local THEME_BY_KEY = {}
 for _, t in ipairs(THEMES) do THEME_BY_KEY[t.key] = t end
@@ -370,19 +378,21 @@ RegisterStateDriver(bag, "combat", "[combat] on; off")
 bag:HookScript("OnShow", function(self) if DB and not self:GetAttribute("autoopened") then DB.open = true end end)
 bag:HookScript("OnHide", function(self) if DB and not self:GetAttribute("autoopened") then DB.open = false end end)
 
+local DEFAULT_BACKDROP = {
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 14,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 },
+}
+
 local function ApplyTheme()
     local t = THEME_BY_KEY[DB.theme]
     if bag.SetBackdrop then
-        bag:SetBackdrop({
-            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-            tile = true, tileSize = 16, edgeSize = 14,
-            insets = { left = 3, right = 3, top = 3, bottom = 3 },
-        })
+        bag:SetBackdrop(t.backdrop or DEFAULT_BACKDROP)
         bag:SetBackdropColor(unpack(t.bg))
         bag:SetBackdropBorderColor(unpack(t.border))
     end
-    tRing:SetVertexColor(unpack(t.border))
+    tRing:SetVertexColor(unpack(t.ring or t.border))
 end
 
 ---------------------------------------------------------------------------
@@ -649,10 +659,10 @@ local function RefreshThemeButtons()
 end
 for i, t in ipairs(THEMES) do
     local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    b:SetSize(100, 24)
-    b:SetPoint("TOPLEFT", 16 + (i - 1) * 106, -276)
+    b:SetSize(88, 24)
+    b:SetPoint("TOPLEFT", 16 + (i - 1) * 94, -276)
     Loc(b, "theme_" .. t.key)
-    b:GetFontString():SetTextColor(unpack(t.border))
+    b:GetFontString():SetTextColor(unpack(t.label or t.border))
     b:SetScript("OnClick", function()
         DB.theme = t.key
         ApplyTheme()
