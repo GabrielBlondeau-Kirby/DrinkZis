@@ -11,6 +11,7 @@ Made for **WoW Forever**.
   - **Mana**: mana potions, mana gems.
   - **Combat**: other potions (swiftness, free action, protection, rage…) and energy items (Thistle Tea).
   - **Buffs**: elixirs, flasks, scrolls.
+  - **Debuffs**: anti-venom and potions that cure poison, disease or curse.
 - One slot per item, with total count and cooldown.
 - **Opens in combat**: the round button works in combat too, and the bag can open automatically when combat starts and close when it ends.
 - **Themes**: Dark, Gold, Arcane, Fel, Blood, WoWtesk (classic WoW UI look).
@@ -31,7 +32,7 @@ Note: the game forbids creating buttons during combat, so a potion looted mid-fi
 
 # DrinkZis (FR)
 
-**Un sac à potions flottant.** Une icône ronde ouvre un cadre avec toutes les potions de vos sacs, rangées par catégorie : vie, mana, combat, buffs.
+**Un sac à potions flottant.** Une icône ronde ouvre un cadre avec toutes les potions de vos sacs, rangées par catégorie : vie, mana, combat, buffs, debuffs.
 
 - Un emplacement par objet, avec quantité totale et recharge.
 - Ouverture automatique en combat, fermeture à la sortie (option).
