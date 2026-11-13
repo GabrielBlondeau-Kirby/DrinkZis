@@ -9,6 +9,7 @@ cadre qui range les potions des sacs par catégorie.
 | **Mana**   | potions de mana, gemmes de mana |
 | **Combat** | autres potions (vitesse, action libre, protections, rage…), objets qui rendent de l'énergie (Thé de chardon) |
 | **Buffs**  | élixirs, flacons, parchemins |
+| **Debuffs** | anti-venin, potions qui soignent poison, maladie ou malédiction |
 
 Un emplacement par type d'objet, avec la quantité totale et la recharge.
 Chaque ligne commence par l'icône de sa catégorie (nom au survol).
@@ -22,7 +23,7 @@ Chaque ligne commence par l'icône de sa catégorie (nom au survol).
   combat), clic droit ouvre les options, glisser la fait tourner.
 - `/dz` : options (aussi dans Échap → Options → AddOns). `/dz reset` : position.
   `/dz minimap` : afficher / masquer l'icône de la minimap.
-  `/dz debug` : affiche dans le chat la catégorie et la description lue pour
+  `/dz debug` : ouvre une fenêtre copiable (Ctrl+A, Ctrl+C) avec la catégorie et la description lue pour
   chaque consommable des sacs (utile si une potion est mal rangée).
 
 ### Options

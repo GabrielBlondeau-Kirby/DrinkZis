@@ -40,10 +40,13 @@ local LANGS = {
             potion  = { "potion", "healthstone", "mana" },
             combat  = { "potion" },
             energy  = { "energy" },
+            cure    = { "cure", "remove" },
+            antidote = { "antidote" },
+            ailment = { "poison", "disease", "curse" },
         },
         ui = {
             empty = "No potions",
-            cat_heal = "Health", cat_mana = "Mana", cat_combat = "Combat", cat_buff = "Buffs",
+            cat_heal = "Health", cat_mana = "Mana", cat_combat = "Combat", cat_buff = "Buffs", cat_debuff = "Debuffs",
             theme_dark = "Dark", theme_gold = "Gold", theme_arcane = "Arcane", theme_fel = "Fel", theme_blood = "Blood", theme_wow = "WoWtesk",
             tip_click = "Click: open / close the bag",
             tip_drag = "Shift + drag: move   /dz: options",
@@ -79,10 +82,13 @@ local LANGS = {
             potion  = { "potion", "pierre de soins", "mana" },
             combat  = { "potion" },
             energy  = { "énergie" },
+            cure    = { "guéri", "dissipe", "supprime", "retire", "annule" },
+            antidote = { "antidote" },
+            ailment = { "poison", "maladie", "malédiction" },
         },
         ui = {
             empty = "Aucune potion",
-            cat_heal = "Vie", cat_mana = "Mana", cat_combat = "Combat", cat_buff = "Buffs",
+            cat_heal = "Vie", cat_mana = "Mana", cat_combat = "Combat", cat_buff = "Buffs", cat_debuff = "Debuffs",
             theme_dark = "Sombre", theme_gold = "Doré", theme_arcane = "Arcane", theme_fel = "Gangrène", theme_blood = "Sang", theme_wow = "WoWtesk",
             tip_click = "Clic : ouvrir / fermer le sac",
             tip_drag = "Maj + glisser : déplacer   /dz : options",
@@ -148,6 +154,7 @@ local CATEGORIES = {
     { key = "mana",   icon = "Interface\\Icons\\Spell_Nature_ManaRegenTotem", color = { 0.30, 0.55, 1.00 } },
     { key = "combat", icon = "Interface\\Icons\\Ability_DualWield",           color = { 1.00, 0.60, 0.10 } },
     { key = "buff",   icon = "Interface\\Icons\\Spell_Holy_WordFortitude",    color = { 0.70, 0.40, 1.00 } },
+    { key = "debuff", icon = "Interface\\Icons\\Spell_Nature_NullifyPoison",  color = { 0.40, 0.85, 0.30 } },
 }
 local CAT_BY_KEY = {}
 for _, c in ipairs(CATEGORIES) do CAT_BY_KEY[c.key] = c end
@@ -260,6 +267,9 @@ local function Classify(itemID)
         local n, kw = name:lower(), KW
         if Has(n, kw.exclude) then
             result = false
+        elseif (Has(use, kw.cure) and Has(use, kw.ailment)) or Has(use, kw.antidote) then
+            -- Anti-venin, antidotes, potions de purification : poison / maladie / malédiction.
+            result = "debuff"
         elseif Has(n, kw.buff) then
             result = "buff"
         elseif Has(n, kw.potion) then
@@ -642,7 +652,7 @@ end)
 Label(panel, "opt_cats", "GameFontNormal"):SetPoint("TOPLEFT", 16, -190)
 local catBoxes = {}
 for i, c in ipairs(CATEGORIES) do
-    local cb = CheckBox("cat_" .. c.key, 16 + (i - 1) * 120, -212, function(v)
+    local cb = CheckBox("cat_" .. c.key, 16 + (i - 1) * 110, -212, function(v)
         DB.hide[c.key] = not v or nil
         Rebuild()
     end)
@@ -871,6 +881,47 @@ events:SetScript("OnEvent", function(_, event, arg1)
     end
 end)
 
+-- Fenêtre avec une zone de texte sélectionnable : le chat ne se copie pas.
+local copyFrame
+local function ShowCopyWindow(text)
+    if not copyFrame then
+        local f = CreateFrame("Frame", "DrinkZisCopyFrame", UIParent)
+        f:SetSize(620, 380)
+        f:SetPoint("CENTER")
+        f:SetFrameStrata("DIALOG")
+        f:SetMovable(true)
+        f:EnableMouse(true)
+        f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", f.StartMoving)
+        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        local bg = f:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0, 0, 0, 0.9)
+        local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        title:SetPoint("TOPLEFT", 12, -10)
+        title:SetText("DrinkZis debug — Ctrl+A, Ctrl+C")
+        local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+        close:SetPoint("TOPRIGHT", 2, 2)
+        local scroll = CreateFrame("ScrollFrame", "DrinkZisCopyScroll", f, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 12, -32)
+        scroll:SetPoint("BOTTOMRIGHT", -32, 12)
+        local edit = CreateFrame("EditBox", nil, scroll)
+        edit:SetMultiLine(true)
+        edit:SetAutoFocus(false)
+        edit:SetFontObject(ChatFontNormal)
+        edit:SetWidth(570)
+        edit:SetScript("OnEscapePressed", function() f:Hide() end)
+        scroll:SetScrollChild(edit)
+        f.edit = edit
+        tinsert(UISpecialFrames, "DrinkZisCopyFrame") -- Échap ferme la fenêtre
+        copyFrame = f
+    end
+    copyFrame.edit:SetText(text)
+    copyFrame:Show()
+    copyFrame.edit:SetFocus()
+    copyFrame.edit:HighlightText()
+end
+
 SLASH_DRINKZIS1 = "/dz"
 SLASH_DRINKZIS2 = "/drinkzis"
 SlashCmdList.DRINKZIS = function(msg)
@@ -883,7 +934,7 @@ SlashCmdList.DRINKZIS = function(msg)
     elseif msg == "debug" then
         -- Reclasse tout et affiche ce que l'addon lit pour chaque consommable.
         wipe(cache)
-        local seen = {}
+        local seen, out = {}, {}
         for b = 0, 4 do
             for s = 1, (GetNumSlots(b) or 0) do
                 local id = GetItemID(b, s)
@@ -892,13 +943,14 @@ SlashCmdList.DRINKZIS = function(msg)
                     local name, _, _, _, _, _, _, _, _, _, _, classID = GetItemInfoCompat(id)
                     if classID == 0 then
                         local use = UseLine(id)
-                        print(("%s|cffffd100%s|r [%d] → %s | spell=%s | use=%s"):format(
-                            PREFIX, name, id, tostring((Classify(id))),
-                            tostring((GetItemSpellCompat(id))), use and use:sub(1, 120) or "nil (pas en cache)"))
+                        table.insert(out, ("%s [%d] → %s | spell=%s | use=%s"):format(
+                            name, id, tostring((Classify(id))),
+                            tostring((GetItemSpellCompat(id))), use and use:sub(1, 200) or "nil (pas en cache)"))
                     end
                 end
             end
         end
+        ShowCopyWindow(#out > 0 and table.concat(out, "\n") or "(aucun consommable)")
         QueueRebuild()
     elseif msg == "minimap" then
         if InCombatLockdown() then print(PREFIX .. T("no_combat")) return end

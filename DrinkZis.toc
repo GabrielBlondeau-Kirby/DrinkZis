@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: DrinkZis
-## Notes: Floating potion bag sorted by category (health, mana, combat, buffs).
-## Notes-frFR: Sac à potions flottant, rangé par catégorie (vie, mana, combat, buffs).
+## Notes: Floating potion bag sorted by category (health, mana, combat, buffs, debuffs).
+## Notes-frFR: Sac à potions flottant, rangé par catégorie (vie, mana, combat, buffs, debuffs).
 ## IconTexture: Interface\AddOns\DrinkZis\Media\icon
 ## Author: Kirbye
 ## X-Curse-Project-ID: 1790153
