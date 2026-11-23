@@ -33,6 +33,8 @@ Chaque ligne commence par l'icône de sa catégorie (nom au survol).
 - Catégories affichées.
 - Thèmes : Sombre, Doré, Arcane, Gangrène, Sang, WoWtesk (look de l’interface WoW).
 - Verrouiller la position.
+- Direction d'ouverture du sac depuis l'icône ronde : haut gauche, haut droite,
+  bas gauche ou bas droite (par défaut).
 - Icône ronde transparente hors combat : elle redevient opaque au survol et
   en combat.
 - Langue de l'interface : Auto (langue du jeu), English, Français. Elle ne
