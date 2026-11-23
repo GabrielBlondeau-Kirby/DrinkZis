@@ -18,6 +18,7 @@ Made for **WoW Forever**.
 - **Fade out of combat** (option): the round button turns transparent outside combat, and opaque again on hover or in combat.
 - **Languages**: English and French interface (Auto follows the game client). Potions are recognised on English and French clients whatever the interface language.
 - Choose which categories are shown.
+- **Opening side**: the bag opens towards the top left, top right, bottom left or bottom right of the round button.
 
 ## Usage
 
@@ -39,5 +40,6 @@ Note: the game forbids creating buttons during combat, so a potion looted mid-fi
 - Thèmes : Sombre, Doré, Arcane, Gangrène, Sang, WoWtesk (look de l’interface WoW).
 - Interface en anglais ou en français (Auto = langue du jeu).
 - Option : icône ronde transparente hors combat.
+- Le sac s'ouvre vers le haut ou le bas, à gauche ou à droite de l'icône (option).
 - Icône autour de la minimap : clic gauche = sac, clic droit = options.
 - `/dz` : options. **Maj + glisser** l'icône : déplacer.

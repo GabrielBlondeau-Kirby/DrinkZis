@@ -63,6 +63,11 @@ local LANGS = {
             opt_lang = "Language",
             opt_lang_hint = "Interface language. Auto = game language.",
             lang_auto = "Auto (game)",
+            opt_side = "Bag opens towards",
+            side_tl = "Top left",
+            side_tr = "Top right",
+            side_bl = "Bottom left",
+            side_br = "Bottom right",
             opt_reset = "Reset position",
             no_combat = "not possible in combat.",
             no_options_combat = "options unavailable in combat.",
@@ -105,6 +110,11 @@ local LANGS = {
             opt_lang = "Langue",
             opt_lang_hint = "Langue de l'interface. Auto = langue du jeu.",
             lang_auto = "Auto (jeu)",
+            opt_side = "Le sac s'ouvre vers",
+            side_tl = "Haut gauche",
+            side_tr = "Haut droite",
+            side_bl = "Bas gauche",
+            side_br = "Bas droite",
             opt_reset = "Réinitialiser la position",
             no_combat = "impossible en combat.",
             no_options_combat = "options indisponibles en combat.",
@@ -185,6 +195,8 @@ local function InitDB()
     DB.hide = DB.hide or {}
     DB.minimap = DB.minimap or { angle = 200, hide = false }
     DB.lang = LANGS[DB.lang or ""] and DB.lang or "auto"
+    local SIDES = { tl = true, tr = true, bl = true, br = true }
+    DB.side = SIDES[DB.side or ""] and DB.side or "br" -- br : vers le bas à droite
 end
 
 ---------------------------------------------------------------------------
@@ -354,7 +366,7 @@ local bagTemplate = "SecureHandlerStateTemplate" .. (BACKDROP_TEMPLATE and "," .
 local bag = CreateFrame("Frame", "DrinkZisBag", UIParent, bagTemplate)
 bag:SetFrameStrata("MEDIUM")
 bag:SetFrameLevel(5)
-bag:SetPoint("TOPLEFT", toggle, "CENTER", 0, 2)
+bag:SetPoint("TOPLEFT", toggle, "CENTER", 0, 2) -- recalé par Rebuild selon le côté
 bag:SetSize(200, 60)
 bag:Hide()
 
@@ -508,7 +520,14 @@ local function Rebuild()
             Rebuild()
         end)
     end
-    local x0 = TOGGLE / 2 + 10 -- dégage l'icône ronde qui chevauche le coin
+    -- Le sac part de l'icône ronde vers l'un des quatre coins (DB.side :
+    -- tl, tr, bl, br). L'icône chevauche le coin du sac : la marge qui la
+    -- dégage passe du côté gauche ou droit selon la direction.
+    local up, left = DB.side:sub(1, 1) == "t", DB.side:sub(2, 2) == "l"
+    local pad = TOGGLE / 2 + 10
+    local x0 = left and 10 or pad
+    bag:ClearAllPoints()
+    bag:SetPoint((up and "BOTTOM" or "TOP") .. (left and "RIGHT" or "LEFT"), toggle, "CENTER", 0, up and -2 or 2)
     local y, nSlot, nLabel, maxCols = -10, 0, 0, 0
 
     for _, c in ipairs(CATEGORIES) do
@@ -547,10 +566,10 @@ local function Rebuild()
         emptyText:ClearAllPoints()
         emptyText:SetPoint("LEFT", bag, "TOPLEFT", x0, -24)
         emptyText:Show()
-        bag:SetSize(x0 + 110, 48)
+        bag:SetSize(pad + 110, 48)
     else
         emptyText:Hide()
-        bag:SetSize(x0 + LABEL_W + maxCols * (SLOT + GAP) + 6, math.max(-y + 6, TOGGLE / 2 + 12))
+        bag:SetSize(pad + LABEL_W + maxCols * (SLOT + GAP) + 6, math.max(-y + 6, TOGGLE / 2 + 12))
     end
 end
 
@@ -709,9 +728,46 @@ for i, choice in ipairs(LANG_CHOICES) do
     langButtons[choice] = b
 end
 
+Label(panel, "opt_side", "GameFontNormal"):SetPoint("TOPLEFT", 16, -386)
+local sideButtons = {}
+local function RefreshSideButtons()
+    for key, b in pairs(sideButtons) do
+        b:SetEnabled(key ~= DB.side) -- le côté actif apparaît grisé
+    end
+end
+-- Grille 2×2 autour d'une petite icône ronde : chaque bouton est placé du
+-- côté où le sac s'ouvrira.
+local SIDE_W, SIDE_GAP = 100, 44
+for i, side in ipairs({ "tl", "tr", "bl", "br" }) do
+    local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    b:SetSize(SIDE_W, 24)
+    b:SetPoint("TOPLEFT", 16 + ((i - 1) % 2) * (SIDE_W + SIDE_GAP), i <= 2 and -408 or -446)
+    Loc(b, "side_" .. side)
+    b:SetScript("OnClick", function()
+        DB.side = side
+        RefreshSideButtons()
+        Rebuild() -- en combat, appliqué à la sortie
+    end)
+    sideButtons[side] = b
+end
+do -- l'icône ronde au centre de la grille, même dessin que la vraie
+    local m = CreateFrame("Frame", nil, panel)
+    m:SetSize(31, 31)
+    m:SetPoint("CENTER", panel, "TOPLEFT", 16 + SIDE_W + SIDE_GAP / 2, -439)
+    local ic = m:CreateTexture(nil, "ARTWORK")
+    ic:SetTexture(ICON)
+    ic:SetSize(20, 20)
+    ic:SetPoint("TOPLEFT", 6, -5.5)
+    if ic.SetMask then ic:SetMask("Interface\\CharacterFrame\\TempPortraitAlphaMask") end
+    local ring = m:CreateTexture(nil, "OVERLAY")
+    ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    ring:SetSize(53, 53)
+    ring:SetPoint("TOPLEFT")
+end
+
 local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 resetBtn:SetSize(180, 22)
-resetBtn:SetPoint("TOPLEFT", 16, -386)
+resetBtn:SetPoint("TOPLEFT", 16, -490)
 Loc(resetBtn, "opt_reset")
 resetBtn:SetScript("OnClick", function()
     if InCombatLockdown() then print(PREFIX .. T("no_combat")) return end
@@ -727,6 +783,7 @@ panel:SetScript("OnShow", function()
     for key, cb in pairs(catBoxes) do cb:SetChecked(not DB.hide[key]) end
     RefreshThemeButtons()
     RefreshLangButtons()
+    RefreshSideButtons()
 end)
 
 local settingsCategory
